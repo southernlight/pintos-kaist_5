@@ -28,6 +28,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* cpu 점유를 하지 않을 스레드를 담아 놓을 리스트 */
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -108,6 +111,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+	list_init (&sleep_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -464,6 +468,7 @@ do_iret (struct intr_frame *tf) {
    added at the end of the function. */
 static void
 thread_launch (struct thread *th) {
+
 	uint64_t tf_cur = (uint64_t) &running_thread ()->tf;
 	uint64_t tf = (uint64_t) &th->tf;
 	ASSERT (intr_get_level () == INTR_OFF);
@@ -540,6 +545,7 @@ do_schedule(int status) {
 
 static void
 schedule (void) {
+
 	struct thread *curr = running_thread ();
 	struct thread *next = next_thread_to_run ();
 
@@ -587,4 +593,55 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+void
+thread_awake (int64_t current_ticks) {
+
+	if (list_empty(&sleep_list)) {
+		return;	
+	}
+
+	while (!list_empty(&sleep_list))
+	{
+		struct thread *first = list_entry (list_front (&sleep_list), struct thread, elem);
+
+		if (first->awake_ticks <= current_ticks)
+		{
+			list_pop_front (&sleep_list);
+			thread_unblock(first);
+		} else {
+			break;
+		}
+	}
+}
+
+bool less_awake_time_thread(const struct list_elem *a,
+							const struct list_elem *b,
+							void *aux)
+{
+	struct thread *a_thread = list_entry (a, struct thread, elem);
+	struct thread *b_thread = list_entry (b, struct thread, elem);
+	return a_thread->awake_ticks < b_thread->awake_ticks;
+}
+
+void 
+thread_sleep(int64_t awake_ticks)
+{	
+	struct thread *curr = thread_current ();
+
+	enum intr_level old_level;
+
+	ASSERT (!intr_context ());
+
+	old_level = intr_disable ();
+
+	curr->awake_ticks = awake_ticks;
+	list_insert_ordered (&sleep_list, &curr->elem, less_awake_time_thread, NULL);
+
+	if (curr != idle_thread) {
+		thread_block ();
+	}
+
+	intr_set_level (old_level);
 }
