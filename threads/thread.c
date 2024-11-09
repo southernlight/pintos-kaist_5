@@ -66,7 +66,6 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 static bool less_awake_time_thread(const struct list_elem *a, const struct list_elem *b, void *aux);
-static bool less_priority_thread(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -213,6 +212,8 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	preemption ();
+
 	return tid;
 }
 
@@ -246,7 +247,7 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_insert_ordered (&ready_list, &t->elem, less_priority_thread, NULL);
+	list_insert_ordered (&ready_list, &t->elem, greater_priority_thread, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -309,7 +310,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_insert_ordered (&ready_list, &curr->elem, less_priority_thread, NULL);
+		list_insert_ordered (&ready_list, &curr->elem, greater_priority_thread, NULL);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -318,15 +319,9 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	struct thread *current = thread_current ();
-	int old_priority = current->priority;
-
-	current->priority = new_priority;
-	list_sort (&ready_list, less_priority_thread, NULL);
-
-	// 우선순위가 더 낮아진 경우 스케줄링을 다시 해주어야 한다.
-	if (old_priority > new_priority) {
-		thread_yield ();
-	}
+	current->init_priority = new_priority;
+	adjust_priority ();
+	preemption ();
 }
 
 /* Returns the current thread's priority. */
@@ -424,6 +419,12 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	t->awake_ticks = 0;
+
+	t->init_priority = priority;
+	t->lock_for_waiting = NULL;
+	list_init(&t->donations);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -641,9 +642,7 @@ thread_sleep(int64_t awake_ticks)
 	curr->awake_ticks = awake_ticks;
 	list_insert_ordered (&sleep_list, &curr->elem, less_awake_time_thread, NULL);
 
-	if (curr != idle_thread) {
-		thread_block ();
-	}
+	thread_block ();
 
 	intr_set_level (old_level);
 }
@@ -658,12 +657,32 @@ less_awake_time_thread(const struct list_elem *a,
 	return a_thread->awake_ticks < b_thread->awake_ticks;
 }
 
-static bool
-less_priority_thread(const struct list_elem *a,
-					 const struct list_elem *b,
-					 void *aux)
+bool
+greater_priority_thread(const struct list_elem *a,
+						const struct list_elem *b,
+						void *aux)
 {
 	struct thread *a_thread = list_entry (a, struct thread, elem);
 	struct thread *b_thread = list_entry (b, struct thread, elem);
 	return a_thread->priority > b_thread->priority;
+}
+
+bool 
+greater_priority_thread_donation(const struct list_elem *a,
+								 const struct list_elem *b,
+								 void *aux)
+{
+	struct thread *a_thread = list_entry (a, struct thread, donation_elem);
+	struct thread *b_thread = list_entry (b, struct thread, donation_elem);
+	return a_thread->priority > b_thread->priority;
+}
+
+void preemption(void)
+{
+    if (
+		!list_empty(&ready_list) 
+		&& thread_current()->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority
+	) {
+        thread_yield();
+	}
 }
