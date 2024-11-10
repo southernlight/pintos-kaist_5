@@ -189,6 +189,13 @@ lock_init (struct lock *lock) {
    we need to sleep. */
 void
 lock_acquire (struct lock *lock) {
+	if (thread_mlfqs) 
+	{
+		sema_down (&lock->semaphore);
+		lock->holder = thread_current ();
+		return;
+	}
+
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
@@ -235,18 +242,21 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
-	
-	struct thread *holder = lock->holder;
 
-	struct list_elem *e;
-	for (e = list_begin (&holder->donations); e != list_end (&holder->donations); e = list_next (e)) {
-		struct thread *t = list_entry(e, struct thread, donation_elem);
-		if (t->lock_for_waiting == lock) {
-			list_remove (&t->donation_elem);
+	if (!thread_mlfqs) 
+	{
+		struct thread *holder = lock->holder;
+
+		struct list_elem *e;
+		for (e = list_begin (&holder->donations); e != list_end (&holder->donations); e = list_next (e)) {
+			struct thread *t = list_entry(e, struct thread, donation_elem);
+			if (t->lock_for_waiting == lock) {
+				list_remove (&t->donation_elem);
+			}
 		}
-	}
 
-	adjust_priority();
+		adjust_priority();
+	}
 
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
