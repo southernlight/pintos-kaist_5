@@ -1,4 +1,4 @@
-#define USERPROG
+//#define USERPROG
 #include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>

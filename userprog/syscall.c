@@ -1,4 +1,4 @@
-#define USERPROG
+//#define USERPROG
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -9,6 +9,10 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include "threads/palloc.h"
+
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "userprog/process.h"
 
 
 
@@ -151,9 +155,11 @@ bool remove(const char *file){
 
 int open(const char *file) {
   check_address(file);
+  
   struct file *newfile = filesys_open(file);
 
   if (newfile == NULL)
+      //printf("******************************");
       return -1;
 
   int fd = process_add_file(newfile);
