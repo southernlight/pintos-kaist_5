@@ -155,7 +155,7 @@ bool remove(const char *file){
 
 int open(const char *file) {
   check_address(file);
-  
+
   struct file *newfile = filesys_open(file);
 
   if (newfile == NULL)
@@ -237,6 +237,7 @@ int write(int fd, const void *buffer, unsigned length) {
 
   return bytes;
 }
+
 
 void seek(int fd, unsigned position) {
   struct file *file = process_get_file(fd);

@@ -151,7 +151,7 @@ __do_fork (void *aux) {
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
@@ -221,7 +221,7 @@ process_exec (void *f_name) {
 	/** project2-Command Line Parsing */
 	char *ptr, *arg;
   int arg_cnt = 0;
-  char *arg_list[64];
+  char *arg_list[128];
 
   for (arg = strtok_r(file_name, " ", &ptr); arg != NULL; arg = strtok_r(NULL, " ", &ptr))
     arg_list[arg_cnt++] = arg;
@@ -482,6 +482,8 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	}
 
+	t->runn_file = file;   /** #Project 2: System Call - 파일 실행 적재 */
+  file_deny_write(file); /** #Project 2: Denying Writes to Executables */
 
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
