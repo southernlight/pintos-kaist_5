@@ -114,6 +114,7 @@ dir_lookup (const struct dir *dir, const char *name,
 	else
 		*inode = NULL;
 
+
 	return *inode != NULL;
 }
 

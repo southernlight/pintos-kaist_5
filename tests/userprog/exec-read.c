@@ -7,6 +7,7 @@
 #include "tests/userprog/sample.inc"
 #include "tests/lib.h"
 #include "tests/main.h"
+typedef int pid_t;
 
 void
 test_main (void) 

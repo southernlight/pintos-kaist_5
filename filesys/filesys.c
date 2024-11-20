@@ -77,6 +77,7 @@ filesys_create (const char *name, off_t initial_size) {
  * otherwise.
  * Fails if no file named NAME exists,
  * or if an internal memory allocation fails. */
+
 struct file *
 filesys_open (const char *name) {
 	struct dir *dir = dir_open_root ();
@@ -88,6 +89,46 @@ filesys_open (const char *name) {
 
 	return file_open (inode);
 }
+
+// //디버깅용 코드
+// struct file *
+// filesys_open (const char *name) {
+//     if (name == NULL || strlen(name) == 0) {
+//         printf("filesys_open: Invalid file name\n");
+//         return NULL;
+//     }
+//     printf("filesys_open: Attempting to open '%s'\n", name);
+
+//     struct dir *dir = dir_open_root();
+//     if (dir == NULL) {
+//         printf("filesys_open: Failed to open root directory\n");
+//         return NULL;
+//     }
+
+//     struct inode *inode = NULL;
+// 		printf("%p, %s, %p", dir, name, inode);
+//     if (!dir_lookup(dir, name, &inode)) {
+//         printf("filesys_open: File '%s' not found in directory\n", name);
+//         inode = NULL;
+//     } else {
+//         printf("filesys_open: File '%s' found, inode=%p\n", name, inode);
+//     }
+
+//     dir_close(dir);
+
+//     if (inode == NULL) {
+//         printf("filesys_open: Failed to open file, inode is NULL\n");
+//         return NULL;
+//     }
+
+//     struct file *file = file_open(inode);
+//     if (file == NULL) {
+//         printf("filesys_open: Failed to open file, file_open() returned NULL\n");
+//     } else {
+//         printf("filesys_open: Successfully opened file '%s'\n", name);
+//     }
+//     return file;
+// }
 
 /* Deletes the file named NAME.
  * Returns true if successful, false on failure.

@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h" /** project2-System Call */
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -33,6 +34,10 @@ typedef int tid_t;
 #define NICE_DEFAULT 0
 #define RECENT_CPU_DEFAULT 0
 #define LOAD_AVG_DEFAULT 0
+
+/**project2 - system call */
+#define FDT_PAGES 3
+#define FDCOUNT_LIMIT FDT_PAGES *(1<<9)
 
 /* A kernel thread or user process.
  *
@@ -112,10 +117,24 @@ struct thread {
 
 	int nice;
 	int recent_cpu;
-
+#define USERPROG
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
+	/**project2 - system call */
+	int exit_status;
+
+	int fd_idx;
+	struct file **fdt;
+	struct file *runn_file;  // 실행중인 파일
+
+  struct intr_frame parent_if;  // 부모 프로세스 if
+  struct list child_list;
+  struct list_elem child_elem;
+
+  struct semaphore fork_sema;  // fork가 완료될 때 signal
+  struct semaphore exit_sema;  // 자식 프로세스 종료 signal
+  struct semaphore wait_sema;  // exit_sema를 기다릴 때 사용
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */
