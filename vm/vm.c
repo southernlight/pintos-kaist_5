@@ -7,6 +7,9 @@
 /* project3-Implement Supplemental Page Table */
 #include "lib/kernel/hash.h"
 
+/* project3-Implement Supplemental Page Table */
+static struct list frame_table;
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void) {
@@ -18,6 +21,8 @@ void vm_init(void) {
   register_inspect_intr();
   /* DO NOT MODIFY UPPER LINES. */
   /* TODO: Your code goes here. */
+  /* project3-Implement Supplemental Page Table */
+  list_init(&frame_table);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
