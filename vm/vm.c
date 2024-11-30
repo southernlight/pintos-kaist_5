@@ -7,6 +7,9 @@
 /* project3-Implement Supplemental Page Table */
 #include "lib/kernel/hash.h"
 
+/* project3-Implement Frame Management */
+#include "threads/mmu.h"
+
 /* project3-Implement Supplemental Page Table */
 static struct list frame_table;
 
@@ -60,8 +63,26 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
      * TODO: and then create "uninit" page struct by calling uninit_new. You
      * TODO: should modify the field after calling the uninit_new. */
 
+    /* project3-Lazy Loading for Executable */
+    struct page *p = malloc(sizeof(struct page));
+    if (p == NULL)
+      return false;
+
+    if (type == VM_ANON) {
+      uninit_new(p, upage, init, type, aux, anon_initializer);
+    } else {
+      uninit_new(p, upage, init, type, aux, file_backed_initializer);
+    }
+    p->writable = writable;
+
     /* TODO: Insert the page into the spt. */
+    if (!spt_insert_page(spt, p)) {
+      free(p);
+      return false;
+    }
+    return true;
   }
+  return false;
 err:
   return false;
 }
@@ -124,12 +145,25 @@ static struct frame *vm_evict_frame(void) {
  * and return it. This always return valid address. That is, if the user pool
  * memory is full, this function evicts the frame to get the available memory
  * space.*/
+
+/* project3-Implement Frame Management */
 static struct frame *vm_get_frame(void) {
-  struct frame *frame = NULL;
   /* TODO: Fill this function. */
+  struct frame *frame = malloc(sizeof(struct frame));
 
   ASSERT(frame != NULL);
   ASSERT(frame->page == NULL);
+
+  uint8_t *kpage = palloc_get_page(PAL_USER);
+
+  if (kpage == NULL) {
+    PANIC("todo");
+  }
+  frame->kva = kpage;
+  frame->page = NULL;
+
+  list_push_back(&frame_table, &frame->frame_elem);
+
   return frame;
 }
 
@@ -160,8 +194,20 @@ void vm_dealloc_page(struct page *page) {
 
 /* Claim the page that allocate on VA. */
 bool vm_claim_page(void *va UNUSED) {
-  struct page *page = NULL;
   /* TODO: Fill this function */
+  struct page *page = malloc(sizeof(struct page));
+  struct thread *cur = thread_current();
+  struct hash_elem *e;
+
+  if (page == NULL)
+    return false;
+  page->va = va;
+
+  e = hash_find(&(cur->spt.spt_hash), &page->hash_elem);
+
+  if (e == NULL)
+    return false;
+  page = hash_entry(e, struct page, hash_elem);
 
   return vm_do_claim_page(page);
 }
@@ -175,6 +221,20 @@ static bool vm_do_claim_page(struct page *page) {
   page->frame = frame;
 
   /* TODO: Insert page table entry to map page's VA to frame's PA. */
+  // bool pml4_set_page (uint64_t *pml4, void *upage, void *kpage, bool rw);
+  // upage 에는 page -> va 가 들어가면 되고, kpage 에는 frame->kva 가 들어가면
+  // 된다.
+
+  /* project3-Implement Frame Management */
+  //   if (page->operations->type == NULL)
+  //     return false;
+  //   if (page->operations->type == VM_FILE)
+  //     pml4_set_page(thread_current()->pml4, page->va, frame->kva, true);
+  //   else
+  //     pml4_set_page(thread_current()->pml4, page->va, frame->kva, false);
+  if (!pml4_set_page(thread_current()->pml4, page->va, frame->kva,
+                     page->writable))
+    return false;
 
   return swap_in(page, frame->kva);
 }
