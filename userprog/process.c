@@ -783,7 +783,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     zero_bytes -= page_zero_bytes;
     upage += PGSIZE;
     /* project3-Lazy Loading for Executable */
-    ofs += PGSIZE;
+    ofs += page_read_bytes;
   }
   return true;
 }
