@@ -7,6 +7,8 @@
 /* project3-Implement Supplemental Page Table */
 #include "lib/kernel/hash.h"
 
+#include "threads/vaddr.h"
+
 /* project3-Frame Management */
 static struct list frame_table;
 
@@ -151,11 +153,29 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
                          bool user UNUSED, bool write UNUSED,
                          bool not_present UNUSED) {
   struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-  struct page *page = NULL;
+  struct page *page = spt_find_page(spt, addr);
+
   /* TODO: Validate the fault */
   /* TODO: Your code goes here */
 
-  return vm_do_claim_page(page);
+  // bool not_present; /* True: not-present page, false: writing r/o page. */
+  // bool write;       /* True: access was write, false: access was read. */
+  // bool user;        /* True: access by user, false: access by kernel. */
+  // void *fault_addr; /* Fault address. */
+
+  /* Case 1: 유효하지 않은 주소에 대한 접근인 경우 */
+  if (is_kernel_vaddr(addr) || addr == NULL)
+    return false;
+
+  /*
+  Case 2 페이지가 존재하지 않는 경우
+  Case 3 또는 페이지는 존재하는데 읽기 전용 페이지에 쓰기 시도 경우
+  */
+  if (not_present || (!not_present && write))
+    return false;
+  else {
+    return vm_do_claim_page(page);
+  }
 }
 
 /* Free the page.
