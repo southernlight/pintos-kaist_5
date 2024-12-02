@@ -51,19 +51,32 @@ static struct frame *vm_evict_frame(void);
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
                                     bool writable, vm_initializer *init,
                                     void *aux) {
-
   ASSERT(VM_TYPE(type) != VM_UNINIT)
-
   struct supplemental_page_table *spt = &thread_current()->spt;
-
   /* Check wheter the upage is already occupied or not. */
   if (spt_find_page(spt, upage) == NULL) {
     /* TODO: Create the page, fetch the initialier according to the VM type,
      * TODO: and then create "uninit" page struct by calling uninit_new. You
      * TODO: should modify the field after calling the uninit_new. */
-
+    /* project3-Lazy Loading for Executable */
+    struct page *p = malloc(sizeof(struct page));
+    if (p == NULL)
+      return false;
+    if (type == VM_ANON) {
+      uninit_new(p, upage, init, type, aux, anon_initializer);
+    } else {
+      uninit_new(p, upage, init, type, aux, file_backed_initializer);
+    }
+    p->writable = writable;
     /* TODO: Insert the page into the spt. */
+    if (!spt_insert_page(spt, p)) {
+      free(p);
+      return false;
+    }
+    return true;
   }
+  printf("helloworld!\n");
+  return false;
 err:
   return false;
 }

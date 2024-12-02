@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define VM
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -763,7 +765,14 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
     /* TODO: Set up aux to pass information to the lazy_load_segment. */
-    void *aux = NULL;
+    struct aux_lazy_load *aux = malloc(sizeof(struct aux_lazy_load));
+    if (aux == NULL)
+      return false;
+    aux->file = file;
+    aux->ofs = ofs;
+    aux->page_read_bytes = page_read_bytes;
+    aux->page_zero_bytes = page_zero_bytes;
+
     if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable,
                                         lazy_load_segment, aux))
       return false;
