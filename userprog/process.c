@@ -734,6 +734,7 @@ static bool lazy_load_segment(struct page *page, void *aux) {
     return false;
   }
   memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+  return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -756,6 +757,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
   ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT(pg_ofs(upage) == 0);
   ASSERT(ofs % PGSIZE == 0);
+  // printf("input ofs : %p\n", ofs);
 
   while (read_bytes > 0 || zero_bytes > 0) {
     /* Do calculate how to fill this page.
@@ -773,6 +775,10 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     aux->page_read_bytes = page_read_bytes;
     aux->page_zero_bytes = page_zero_bytes;
 
+    // // 테스트 코드
+    // printf("upage : %p\n", upage);
+    // printf("offset : %p\n", ofs);
+
     if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable,
                                         lazy_load_segment, aux))
       return false;
@@ -780,7 +786,8 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
-    upage += ofs;
+    upage += PGSIZE;
+    ofs += page_read_bytes;
   }
   return true;
 }
@@ -793,13 +800,13 @@ static bool setup_stack(struct intr_frame *if_) {
    * TODO: You should mark the page is stack. */
   /* TODO: Your code goes here */
 
-  if (!vm_alloc_page(VM_ANON, stack_bottom, true))
+  if (!vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true))
     return false;
 
   if (!vm_claim_page(stack_bottom))
     return false;
 
-  if_->rsp = stack_bottom;
+  if_->rsp = USER_STACK;
 
   return true;
 }

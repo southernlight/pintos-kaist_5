@@ -7,8 +7,7 @@
 typedef int pid_t;
 typedef int off_t;
 
-//typedef int32_t off_t;
-
+// typedef int32_t off_t;
 
 void check_address(void *addr);
 void halt(void);
@@ -16,7 +15,7 @@ void exit(int status);
 bool create(const char *file, unsigned initial_size);
 bool remove(const char *file);
 
-void syscall_init (void);
+void syscall_init(void);
 
 int open(const char *file);
 int filesize(int fd);

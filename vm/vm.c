@@ -53,6 +53,15 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
                                     void *aux) {
   ASSERT(VM_TYPE(type) != VM_UNINIT)
   struct supplemental_page_table *spt = &thread_current()->spt;
+
+  // 체크 코드
+  // printf("%p\n", upage);
+  struct page *existing_page = spt_find_page(spt, upage);
+  // if (existing_page != NULL) {
+  //   printf("Page already exists: %p\n", upage);
+  //   return false;
+  // }
+
   /* Check wheter the upage is already occupied or not. */
   if (spt_find_page(spt, upage) == NULL) {
     /* TODO: Create the page, fetch the initialier according to the VM type,
@@ -75,7 +84,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
     }
     return true;
   }
-  printf("helloworld!\n");
+  // printf("helloworld!\n");
   return false;
 err:
   return false;
@@ -88,29 +97,34 @@ struct page *spt_find_page(struct supplemental_page_table *spt UNUSED,
   /* TODO: Fill this function. */
 
   /* project3-Implement Supplemental Page Table */
-  page = malloc(sizeof(struct page));
+  page = (struct page *)malloc(sizeof(struct page));
+  page->va = pg_round_down(va);
   struct hash_elem *e;
   // 블로그랑 다름
-  page->va = va;
+  // page->va = va;
   e = hash_find(&spt->spt_hash, &page->hash_elem);
 
   if (e != NULL)
     return hash_entry(e, struct page, hash_elem);
+
+  free(page);
   return NULL;
 }
 
 /* Insert PAGE into spt with validation. */
 bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
                      struct page *page UNUSED) {
-  int succ = false;
+  // bool succ = false;
   /* TODO: Fill this function. */
 
   /* project3-Implement Supplemental Page Table */
   // 블로그랑 다름
-  if (hash_insert(&spt->spt_hash, &page->hash_elem) == NULL)
-    succ = true;
+  // if (hash_insert(&spt->spt_hash, &page->hash_elem) == NULL)
+  //   succ = true;
 
-  return succ;
+  // return succ;
+  /* TODO: Fill this function. */
+  return hash_insert(&spt->spt_hash, &page->hash_elem) == NULL ? true : false;
 }
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page) {
@@ -143,6 +157,9 @@ static struct frame *vm_evict_frame(void) {
 static struct frame *vm_get_frame(void) {
   /* TODO: Fill this function. */
   struct frame *frame = malloc(sizeof(struct frame));
+  frame->page = NULL;
+
+  // error 해결
   ASSERT(frame != NULL);
   ASSERT(frame->page == NULL);
   uint8_t *kpage = palloc_get_page(PAL_USER);
@@ -150,7 +167,6 @@ static struct frame *vm_get_frame(void) {
     PANIC("todo");
   }
   frame->kva = kpage;
-  frame->page = NULL;
   list_push_back(&frame_table, &frame->frame_elem);
   return frame;
 }
@@ -184,11 +200,25 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
   Case 2 페이지가 존재하지 않는 경우
   Case 3 또는 페이지는 존재하는데 읽기 전용 페이지에 쓰기 시도 경우
   */
-  if (not_present || (!not_present && write))
-    return false;
-  else {
+  if (not_present) {
+    page = spt_find_page(spt, addr);
+    if (page == NULL)
+      return false;
+
+    if (write && page->writable == false)
+      return false;
+
     return vm_do_claim_page(page);
   }
+
+  /* Case 3: 페이지가 존재하고, 읽기 전용 페이지에 쓰기 시도한 경우 */
+  if (write && page != NULL && page->writable == false) {
+    return false; // 읽기 전용 페이지에 대한 쓰기 접근
+  }
+
+  return false;
+
+  // return vm_do_claim_page(page);
 }
 
 /* Free the page.
@@ -242,7 +272,8 @@ static bool vm_do_claim_page(struct page *page) {
 unsigned page_hash(const struct hash_elem *e, void *aux) {
   struct page *p = hash_entry(e, struct page, hash_elem);
   // 키를 해시 값으로 변환
-  return hash_int(p->va);
+  // return hash_int(p->va);
+  return hash_bytes(&p->va, sizeof p->va);
 }
 
 /* project3-Implement Supplemental Page Table */
