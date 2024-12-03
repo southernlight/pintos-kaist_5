@@ -73,6 +73,8 @@ void syscall_handler(struct intr_frame *f UNUSED) {
 
   case SYS_EXEC:
     f->R.rax = exec(f->R.rdi);
+    if (f->R.rax == -1)
+      exit(-1);
     break;
 
   case SYS_WAIT:
